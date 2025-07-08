@@ -10,9 +10,16 @@
   let eta = 'Menghitung...';
   let distance = '...';
   let pickupCoord = null;
-  let driverCoord = null;
   let destinationCoord = null;
-  let step = 'driverToPickup'; // 'driverToPickup' -> 'pickupToDestination' -> 'Arrived'
+  let step = 'pickupToDestination';
+
+  let tripSummaryVisible = false;
+  let summary = {
+    duration: '',
+    distance: '',
+    pickup: '',
+    destination: ''
+  };
 
   const MAPTILER_KEY = 'jVkYm2XR18hGm0fCtQtg';
 
@@ -64,20 +71,15 @@
   function addMarkers(start, end) {
     document.querySelectorAll('.maplibregl-marker').forEach(m => m.remove());
 
-    new maplibregl.Marker({ color: 'green' })
+    new maplibregl.Marker({ color: 'black' })
       .setLngLat(start)
-      .setPopup(new maplibregl.Popup().setText(step === 'driverToPickup' ? 'Driver' : 'Pickup'))
+      .setPopup(new maplibregl.Popup().setText('Pickup'))
       .addTo(map);
 
-    new maplibregl.Marker({ color: 'blue' })
+    new maplibregl.Marker({ color: 'green' })
       .setLngLat(end)
-      .setPopup(new maplibregl.Popup().setText(step === 'driverToPickup' ? 'Penjemputan' : 'Tujuan'))
+      .setPopup(new maplibregl.Popup().setText('Tujuan'))
       .addTo(map);
-  }
-
-  function simulateArrivedAtPickup() {
-    step = 'pickupToDestination';
-    getRoute(pickupCoord, destinationCoord);
   }
 
   function simulateArrivedAtDestination() {
@@ -96,23 +98,31 @@
     distance = '0 km';
   }
 
+  function completeTrip() {
+    summary = {
+      duration: eta,
+      distance: distance,
+      pickup: `${pickupCoord[1].toFixed(5)}, ${pickupCoord[0].toFixed(5)}`,
+      destination: `${destinationCoord[1].toFixed(5)}, ${destinationCoord[0].toFixed(5)}`
+    };
+    tripSummaryVisible = true;
+    step = 'completed';
+  }
+
   const cancelOrder = () => {
-    alert("Pesanan dibatalkan (dummy).")
-    goto('/home');
+    alert("Pesanan dibatalkan (dummy).");
+    goto('/driver');
   }
 
   onMount(() => {
     const url = get(page).url;
-    const driverParam = url.searchParams.get('driver');
     const pickupParam = url.searchParams.get('pickupCoord');
     const destParam = url.searchParams.get('destinationCoord');
 
-    if (!driverParam || !pickupParam || !destParam) return goto('/home');
+    if (!pickupParam || !destParam) return goto('/driver');
 
-    const driver = JSON.parse(decodeURIComponent(driverParam));
     pickupCoord = JSON.parse(decodeURIComponent(pickupParam));
     destinationCoord = JSON.parse(decodeURIComponent(destParam));
-    driverCoord = [driver.lon, driver.lat];
 
     map = new maplibregl.Map({
       container: 'map',
@@ -122,7 +132,7 @@
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.on('load', () => getRoute(driverCoord, pickupCoord));
+    map.on('load', () => getRoute(pickupCoord, destinationCoord));
   });
 </script>
 
@@ -175,10 +185,23 @@
     <p><strong>ETA:</strong> {eta}</p>
   </div>
 
-  {#if step === 'driverToPickup'}
-    <button class="dummy-button" on:click={simulateArrivedAtPickup}>Simulasi: Driver Sampai Pickup</button>
-  {:else if step === 'pickupToDestination'}
+  {#if step === 'pickupToDestination'}
     <button class="dummy-button" on:click={simulateArrivedAtDestination}>Simulasi: Sampai Tujuan</button>
+  {/if}
+
+  {#if step === 'Arrived'}
+    <button class="dummy-button" on:click={completeTrip}>Selesaikan Perjalanan</button>
+  {/if}
+
+  {#if tripSummaryVisible}
+    <div class="info-panel">
+      <h3>Ringkasan Perjalanan</h3>
+      <p><strong>Durasi:</strong> {summary.duration}</p>
+      <p><strong>Jarak:</strong> {summary.distance}</p>
+      <p><strong>Pickup:</strong> {summary.pickup}</p>
+      <p><strong>Tujuan:</strong> {summary.destination}</p>
+      <button class="dummy-button" on:click={() => goto('/driver')}>Kembali ke Beranda</button>
+    </div>
   {/if}
 
   <button class="dummy-button cancel-button" on:click={cancelOrder}>Batalkan Pesanan</button>
